@@ -6,61 +6,90 @@ mod vector_utils;
 
 use crate::camera::Camera;
 use crate::hittable::Sphere;
-use crate::material::{Color, Material};
+use crate::material::Material;
 use anyhow::Result;
-use glam::Vec3A;
+use glam::{EulerRot, Vec3A};
 use image::ImageFormat;
+use std::f32::consts::{FRAC_PI_4, PI};
 use std::time::Instant;
 
 const WIDTH: u32 = 960;
 const HEIGHT: u32 = 540;
 
 fn main() -> Result<()> {
-    let camera = Camera::new(WIDTH, HEIGHT);
+    let vfov = 90.0 * PI / 180.0;
+    let center = Vec3A::new(-2.0, 2.0, 1.0);
+    let rotation = glam::Quat::from_euler(EulerRot::YXZ, -FRAC_PI_4, -FRAC_PI_4 + 0.15, 0.0); //yaw, pitch, roll
+    let focal_length = 1.7f32;
+
+    let camera = Camera::new(WIDTH, HEIGHT, center, rotation, vfov, focal_length);
 
     let mut world = vec![];
-    let material_ground = Material::Lambertian {
-        albedo: Color::new(0.2, 0.2, 0.2),
+    let ground_material = Material::Lambertian {
+        albedo: Vec3A::new(0.5, 0.5, 0.5),
     };
+    let ground = Sphere {
+        center: Vec3A::new(0.0, -1000.0, 0.0),
+        radius: 1000.0,
+        material: ground_material,
+    };
+    world.push(ground);
 
-    let material_center = Material::Lambertian {
-        albedo: Color::new(0.1, 0.2, 0.5),
+    let material1 = Material::Metal {
+        albedo: Vec3A::new(4.0, 3.0, 1.0),
+        fuzz: 0.0
     };
-    let material_left = Material::Dielectric {
-        albedo: Color::new(1.0, 1.0, 1.0),
-        refraction_index: 1.5,
+    let sphere1 = Sphere {
+        center: Vec3A::new(0.0, 0.5, 0.0),
+        radius: 0.5,
+        material: material1,
     };
-    let material_right = Material::Metal {
-        albedo: Color::new(0.8, 0.6, 0.2),
-        fuzz: 0.0,
-    };
+    world.push(sphere1);
 
-    //for output2.png
-    /*let material_center = Material::Dielectric {
-        albedo: Color::new(1.0, 0.0, 0.0),
-        refraction_index: 1.5,
-    };
-    let material_left = Material::Dielectric {
-        albedo: Color::new(0.0, 1.0, 0.0),
-        refraction_index: 1.5,
-    };
-    let material_right = Material::Dielectric {
-        albedo: Color::new(0.0, 0.0, 1.0),
-        refraction_index: 1.5,
-    };*/
+    for a in -11..11 {
+        for b in -11..11 {
+            let choose_mat = rand::random::<f32>();
+            let center = Vec3A::new(
+                a as f32 + 0.9 * rand::random::<f32>(),
+                0.2,
+                b as f32 + 0.9 * rand::random::<f32>(),
+            );
 
-    world.push(Sphere::new(
-        Vec3A::new(0.0, -100.5, -1.0),
-        100.0,
-        material_ground,
-    ));
-    world.push(Sphere::new(
-        Vec3A::new(0.0, 0.0, -1.0),
-        0.5,
-        material_center,
-    ));
-    world.push(Sphere::new(Vec3A::new(-1.0, 0.0, -1.0), 0.5, material_left));
-    world.push(Sphere::new(Vec3A::new(1.0, 0.0, -1.0), 0.5, material_right));
+            if (center - Vec3A::new(4.0, 0.2, 0.0)).length() > 0.9 {
+                let sphere = Sphere {
+                    center,
+                    radius: 0.2,
+                    material: if choose_mat < 0.8 {
+                        Material::Lambertian {
+                            albedo: Vec3A::new(
+                                rand::random::<f32>() * rand::random::<f32>(),
+                                rand::random::<f32>() * rand::random::<f32>(),
+                                rand::random::<f32>() * rand::random::<f32>(),
+                            ),
+                        }
+                    } else if choose_mat < 0.95 {
+                        Material::Metal {
+                            albedo: Vec3A::new(
+                                0.5 * (1.0 + rand::random::<f32>()),
+                                0.5 * (1.0 + rand::random::<f32>()),
+                                0.5 * (1.0 + rand::random::<f32>()),
+                            ),
+                            fuzz: 0.5 * rand::random::<f32>(),
+                        }
+                    } else {
+                        Material::Dielectric {
+                            albedo: Vec3A::new(1.0, 1.0, 1.0),
+                            refraction_index: 1.5,
+                        }
+                    },
+                };
+                world.push(sphere);
+            }
+        }
+    }
+
+
+
 
     let start = Instant::now();
     let image = camera.render(&world);
@@ -68,7 +97,7 @@ fn main() -> Result<()> {
 
     println!("done in {}s, saving file", duration.as_secs_f32());
 
-    image.save_with_format("output.png", ImageFormat::Png)?;
+    image.save_with_format("output3.png", ImageFormat::Png)?;
 
     Ok(())
 }

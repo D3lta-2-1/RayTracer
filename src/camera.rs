@@ -1,7 +1,7 @@
 use crate::hittable::Hittable;
 use crate::material::Color;
 use crate::ray::Ray;
-use glam::Vec3A;
+use glam::{Quat, Vec3A};
 use image::RgbaImage;
 use rand::{thread_rng, Rng};
 use rayon::iter::ParallelIterator;
@@ -11,6 +11,7 @@ pub struct Camera {
     pub image_height: u32,
     pub sample_per_pixel: u32,
     pub max_depth: u32,
+    pub vfov: f32, //vertical field of view, in radians
     camera_center: Vec3A,
     pixel00_loc: Vec3A,
     pixel_delta_u: Vec3A,
@@ -18,19 +19,24 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new(image_width: u32, image_height: u32) -> Self {
-        let focal_length = 1f32;
-        let viewport_height = 2f32; //chosen arbitrary
+    pub fn new(
+        image_width: u32,
+        image_height: u32,
+        camera_center: Vec3A,
+        rotation: Quat,
+        vfov: f32,
+        focal_length: f32,
+    ) -> Self {
+        let viewport_height = 2f32 * f32::tan(vfov / 2.0) * focal_length; //chosen arbitrary
         let viewport_width = viewport_height * (image_width as f32 / image_height as f32);
-        let camera_center = Vec3A::splat(0.0);
 
-        let viewport_u = Vec3A::new(viewport_width, 0.0, 0.0); //might move this into the camera
-        let viewport_v = Vec3A::new(0.0, -viewport_height, 0.0);
+        let viewport_u = rotation * Vec3A::new(viewport_width, 0.0, 0.0); //might move this into the camera
+        let viewport_v = rotation * Vec3A::new(0.0, -viewport_height, 0.0);
         let pixel_delta_u = viewport_u / image_width as f32;
         let pixel_delta_v = viewport_v / image_height as f32;
 
         let viewport_upper_left = camera_center
-            - Vec3A::new(0.0, 0.0, focal_length) //because Z- is forward
+            - rotation * Vec3A::new(0.0, 0.0, focal_length) //because Z- is forward
             - viewport_u / 2.0
             - viewport_v / 2.0;
 
@@ -39,8 +45,9 @@ impl Camera {
         Self {
             image_width,
             image_height,
-            sample_per_pixel: 500,
-            max_depth: 400,
+            sample_per_pixel: 400,
+            max_depth: 10,
+            vfov,
             camera_center,
             pixel00_loc,
             pixel_delta_v,
@@ -70,7 +77,7 @@ impl Camera {
             return Vec3A::splat(0.0);
         }
 
-        let hit = world.hit(ray, 0.00001..f32::MAX);
+        let hit = world.hit(ray, 0.001..f32::MAX);
         if let Some(hit) = hit {
             if let Some((attenuation, scattered)) = hit.material.scatter(ray, &hit) {
                 return attenuation * Self::ray_color(&scattered, world, depth - 1);

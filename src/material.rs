@@ -2,15 +2,23 @@ use crate::hittable::HitRecord;
 use crate::ray::Ray;
 use crate::vector_utils::{near_zero, random_unit_vector, reflect, reflectance, refract};
 use glam::Vec3A;
-use rand::{Rng, thread_rng};
+use rand::{thread_rng, Rng};
 
 pub type Color = Vec3A;
 
 #[derive(Copy, Clone)]
 pub enum Material {
-    Lambertian { albedo: Color },
-    Metal { albedo: Color, fuzz: f32 },
-    Dielectric { albedo: Color, refraction_index: f32 },
+    Lambertian {
+        albedo: Color,
+    },
+    Metal {
+        albedo: Color,
+        fuzz: f32,
+    },
+    Dielectric {
+        albedo: Color,
+        refraction_index: f32,
+    },
 }
 
 impl Material {
@@ -40,7 +48,10 @@ impl Material {
                     },
                 ))
             }
-            Material::Dielectric { albedo, refraction_index } => {
+            Material::Dielectric {
+                albedo,
+                refraction_index,
+            } => {
                 //Snell-Descartes' law
                 let refraction_ratio = if hit_record.front_face {
                     1.0 / refraction_index
@@ -56,7 +67,9 @@ impl Material {
                 let cannot_refract = refraction_ratio * sin_theta > 1.0;
 
                 let mut rng = thread_rng();
-                let direction = if cannot_refract || reflectance(cos_theta, refraction_ratio) > rng.gen_range(0.0..1.0) {
+                let direction = if cannot_refract
+                    || reflectance(cos_theta, refraction_ratio) > rng.gen_range(0.0..1.0)
+                {
                     reflect(unit_direction, hit_record.normal)
                 } else {
                     refract(unit_direction, hit_record.normal, refraction_ratio)
@@ -69,7 +82,7 @@ impl Material {
                         direction,
                     },
                 ))
-            },
+            }
         }
     }
 }
