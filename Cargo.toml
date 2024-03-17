@@ -1,0 +1,11 @@
+[package]
+name = "raytracing_in_one_weekend"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.81"
+image = { version = "0.25.0", features = ["rayon"] }
+glam = "0.25.0"
+rayon = "1.9.0"
+rand = "0.8.1"
